@@ -7,28 +7,66 @@ export function useTraverseTree() {
 		folderId: string,
 		itemName: string,
 		isFolder: boolean
-	) {
+	): Root {
 		if (tree.id === folderId && tree.isFolder) {
-			tree.items.unshift({
-				id: nanoid(5),
-				name: itemName,
-				isFolder,
-				items: [],
-			});
-			return tree;
+			return {
+				...tree,
+				items: [
+					{ id: nanoid(5), name: itemName, isFolder, items: [] },
+					...tree.items,
+				],
+			};
 		}
 
-		let latestNode: Item[] = [];
-		latestNode = tree.items.map((ob) => {
-			return insertNode(ob, folderId, itemName, isFolder);
+		let changed = false;
+		const updatedChildren = tree.items.map((child) => {
+			const updatedChild = insertNode(child, folderId, itemName, isFolder);
+			if (updatedChild !== child) changed = true;
+			return updatedChild;
 		});
 
-		return { ...tree, items: latestNode };
+		if (!changed) return tree;
+
+		return { ...tree, items: updatedChildren };
 	}
 
-	function deleteNode() {}
+	function deleteNode(tree: Root, folderId: string): Root | undefined {
+		if (tree.id === folderId && tree.id === "1") return tree;
 
-	function editNode() {}
+		if (tree.id === folderId) return undefined;
 
-	return { insertNode, deleteNode, editNode };
+		let changed = false;
+		const updatedChildren: Item[] = [];
+		for (const child of tree.items) {
+			const result = deleteNode(child, folderId);
+			if (result !== child) changed = true;
+			if (result) updatedChildren.push(result);
+		}
+
+		if (!changed) return tree;
+
+		return { ...tree, items: updatedChildren };
+	}
+
+	function deleteNodeSafe(tree: Root, folderId: string): Root {
+		const result = deleteNode(tree, folderId);
+		return result || tree;
+	}
+
+	function editNode(tree: Root, folderId: string, updatedName: string): Root {
+		if (tree.id === folderId) return { ...tree, name: updatedName };
+
+		let changed = false;
+		const updatedChildren = tree.items.map((child) => {
+			const updatedChild = editNode(child, folderId, updatedName);
+			if (updatedChild !== child) changed = true;
+			return updatedChild;
+		});
+
+		if (!changed) return tree;
+
+		return { ...tree, items: updatedChildren };
+	}
+
+	return { insertNode, deleteNode: deleteNodeSafe, editNode };
 }
